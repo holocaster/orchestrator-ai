@@ -33,10 +33,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GoalRunAcceptanceTest {
 
+    private static final String ACHIEVED_DECISION =
+            "{\"action\":\"FINISH\",\"outcome\":\"ACHIEVED\",\"answer\":\"The MVP proves one bounded orchestration path.\"}";
+    private static final String NOT_ACHIEVED_DECISION =
+            "{\"action\":\"FINISH\",\"outcome\":\"NOT_ACHIEVED\",\"answer\":\"The available information is insufficient.\"}";
+
     @Container
     static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine");
 
     private static final AtomicReference<String> providerRequest = new AtomicReference<>();
+    private static final AtomicReference<String> providerDecision = new AtomicReference<>(ACHIEVED_DECISION);
     private static final AtomicReference<CountDownLatch> providerCalled = new AtomicReference<>();
     private static final AtomicReference<CountDownLatch> providerResponseGate = new AtomicReference<>();
     private static HttpServer provider;
@@ -117,6 +123,22 @@ class GoalRunAcceptanceTest {
         assertThat(awaitCompleted(firstRunId).get("state").asText()).isEqualTo("COMPLETED");
     }
 
+    @Test
+    void completesWithNotAchievedWhenTheGoalCannotBeSatisfied() throws Exception {
+        providerDecision.set(NOT_ACHIEVED_DECISION);
+        try {
+            HttpResponse<String> created = send("POST", "/api/goal-runs", "{\"goal\":\"Answer without enough information\"}");
+            assertThat(created.statusCode()).isEqualTo(201);
+
+            JsonNode completed = awaitCompleted(json.readTree(created.body()).get("id").asText());
+            assertThat(completed.get("state").asText()).isEqualTo("COMPLETED");
+            assertThat(completed.get("outcome").asText()).isEqualTo("NOT_ACHIEVED");
+            assertThat(completed.get("finalAnswer").asText()).isEqualTo("The available information is insufficient.");
+        } finally {
+            providerDecision.set(ACHIEVED_DECISION);
+        }
+    }
+
     private JsonNode awaitCompleted(String id) throws Exception {
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         JsonNode run;
@@ -163,7 +185,7 @@ class GoalRunAcceptanceTest {
                     "index": 0,
                     "message": {
                       "role": "assistant",
-                      "content": "{\\"action\\":\\"FINISH\\",\\"outcome\\":\\"ACHIEVED\\",\\"answer\\":\\"The MVP proves one bounded orchestration path.\\"}"
+                      "content": "%s"
                     },
                     "finish_reason": "stop"
                   }],
@@ -173,10 +195,14 @@ class GoalRunAcceptanceTest {
                     "total_tokens": 35
                   }
                 }
-                """.getBytes(StandardCharsets.UTF_8);
+                """.formatted(escapeJson(providerDecision.get())).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().add("Content-Type", "application/json");
         exchange.sendResponseHeaders(200, response.length);
         exchange.getResponseBody().write(response);
         exchange.close();
+    }
+
+    private static String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

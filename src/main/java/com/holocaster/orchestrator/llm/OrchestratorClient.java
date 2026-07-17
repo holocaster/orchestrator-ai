@@ -49,8 +49,11 @@ public class OrchestratorClient {
         this.systemPrompt = systemPrompt;
     }
 
-    public OrchestratorResult finish(String goal) {
-        String promptText = "Goal:\n" + goal + "\n\nThis is the final available cycle. Return FINISH.";
+    public String buildPrompt(String goal) {
+        return "Goal:\n" + goal + "\n\nThis is the final available cycle. Return FINISH.";
+    }
+
+    public OrchestratorCall decide(String promptText) {
         OpenAiChatModel.ResponseFormat responseFormat = OpenAiChatModel.ResponseFormat.builder()
                 .type(OpenAiChatModel.ResponseFormat.Type.JSON_SCHEMA)
                 .jsonSchema(DECISION_SCHEMA)
@@ -64,39 +67,40 @@ public class OrchestratorClient {
                 List.of(new SystemMessage(systemPrompt), new UserMessage(promptText)),
                 options));
         String content = response.getResult().getOutput().getText();
-        Decision decision = parse(content);
+        OrchestratorDecision decision = parse(content);
         Usage usage = response.getMetadata().getUsage();
-        return new OrchestratorResult(
+        return new OrchestratorCall(
                 promptText,
                 content,
-                decision.outcome(),
-                decision.answer(),
+                decision,
                 response.getMetadata().getId(),
                 usage.getPromptTokens(),
                 usage.getCompletionTokens());
     }
 
-    private Decision parse(String content) {
+    private OrchestratorDecision parse(String content) {
         try {
-            Decision decision = json.readValue(content, Decision.class);
+            StructuredDecision decision = json.readValue(content, StructuredDecision.class);
             if (!"FINISH".equals(decision.action()) || decision.outcome() == null
                     || decision.answer() == null || decision.answer().isBlank()) {
                 throw new IllegalArgumentException("Orchestrator returned an invalid FINISH decision.");
             }
-            return decision;
+            return new OrchestratorDecision(decision.outcome(), decision.answer());
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("Orchestrator returned invalid structured output.", exception);
         }
     }
 
-    private record Decision(String action, GoalOutcome outcome, String answer) {
+    private record StructuredDecision(String action, GoalOutcome outcome, String answer) {
     }
 
-    public record OrchestratorResult(
+    public record OrchestratorDecision(GoalOutcome outcome, String answer) {
+    }
+
+    public record OrchestratorCall(
             String prompt,
             String rawResponse,
-            GoalOutcome outcome,
-            String answer,
+            OrchestratorDecision decision,
             String providerRequestId,
             Integer promptTokens,
             Integer completionTokens) {

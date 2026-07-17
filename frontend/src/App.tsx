@@ -100,7 +100,7 @@ export default function App() {
         <p className="font-mono text-xs text-muted">Private MVP</p>
       </header>
 
-      <section aria-labelledby="goal-heading" className="py-8 sm:py-10">
+      <section hidden={isRunning} aria-labelledby="goal-heading" className="py-8 sm:py-10">
         <div className="mb-5">
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-accent">New run</p>
           <h2 id="goal-heading" className="mt-2 text-xl font-medium text-primary">

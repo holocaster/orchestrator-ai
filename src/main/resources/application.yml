@@ -6,11 +6,10 @@ spring:
     username: ${DATABASE_USERNAME:orchestrator}
     password: ${DATABASE_PASSWORD:orchestrator}
   ai:
-    retry:
-      max-attempts: 1
     openai:
       api-key: ${OPENROUTER_API_KEY:}
       base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      max-retries: 0
       chat:
         model: ${ORCHESTRATOR_MODEL:openai/gpt-5-mini}
         temperature: ${ORCHESTRATOR_TEMPERATURE:0.2}
