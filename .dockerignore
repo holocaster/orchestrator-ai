@@ -1,0 +1,9 @@
+.git
+.idea
+.notebook
+.scratch
+.vscode
+target
+frontend/dist
+frontend/node_modules
+*.iml

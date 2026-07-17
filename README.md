@@ -32,3 +32,13 @@ java -jar target/orchestrator-ia-0.0.1-SNAPSHOT.jar
 ```
 
 Open `http://localhost:8080`. This authentication-free MVP must remain on a private network and must not be exposed publicly.
+
+## Docker Compose
+
+Set `OPENROUTER_API_KEY`, then build and start the application with PostgreSQL:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8080`. PostgreSQL data is stored in the `postgres-data` volume.
