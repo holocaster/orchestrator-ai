@@ -18,7 +18,7 @@ npm ci
 npm run build
 cd ..
 mvn test
-mvn package
+mvn clean package
 ```
 
 The packaged JAR includes the React SPA from `frontend/dist`.
