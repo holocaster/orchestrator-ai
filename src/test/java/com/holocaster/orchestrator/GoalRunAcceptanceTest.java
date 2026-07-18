@@ -21,8 +21,11 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -30,6 +33,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
+@ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GoalRunAcceptanceTest {
 
@@ -43,6 +47,7 @@ class GoalRunAcceptanceTest {
 
     private static final AtomicReference<String> providerRequest = new AtomicReference<>();
     private static final AtomicReference<String> providerDecision = new AtomicReference<>(ACHIEVED_DECISION);
+    private static final AtomicReference<String> providerError = new AtomicReference<>();
     private static final AtomicReference<CountDownLatch> providerCalled = new AtomicReference<>();
     private static final AtomicReference<CountDownLatch> providerResponseGate = new AtomicReference<>();
     private static HttpServer provider;
@@ -93,6 +98,7 @@ class GoalRunAcceptanceTest {
         JsonNode sentToProvider = json.readTree(providerRequest.get());
         assertThat(sentToProvider.at("/response_format/type").asText()).isEqualTo("json_schema");
         assertThat(sentToProvider.at("/response_format/json_schema/strict").asBoolean()).isTrue();
+        assertThat(sentToProvider.at("/response_format/json_schema/schema/type").asText()).isEqualTo("object");
         assertThat(sentToProvider.at("/model").asText()).isEqualTo("test-orchestrator");
     }
 
@@ -113,7 +119,7 @@ class GoalRunAcceptanceTest {
             HttpResponse<String> conflicting = send("POST", "/api/goal-runs", "{\"goal\":\"Do not start this run\"}");
             assertThat(conflicting.statusCode()).isEqualTo(409);
             assertThat(json.readTree(conflicting.body()).get("message").asText())
-                    .isEqualTo("Another Goal Run is already running.");
+                    .isEqualTo("Já existe uma execução em andamento.");
         } finally {
             responseGate.countDown();
             providerCalled.set(null);
@@ -136,6 +142,33 @@ class GoalRunAcceptanceTest {
             assertThat(completed.get("finalAnswer").asText()).isEqualTo("The available information is insufficient.");
         } finally {
             providerDecision.set(ACHIEVED_DECISION);
+        }
+    }
+
+    @Test
+    void logsConcreteProviderErrorDetails(CapturedOutput output) throws Exception {
+        providerError.set("""
+                {
+                  "error": {
+                    "message": "Provider returned error",
+                    "code": 400,
+                    "metadata": {
+                      "raw": "Unsupported parameter: temperature",
+                      "provider_name": "OpenAI",
+                      "authorization": "Bearer test-secret"
+                    }
+                  }
+                }
+                """);
+        try {
+            HttpResponse<String> created = send("POST", "/api/goal-runs", "{\"goal\":\"Trigger provider error\"}");
+
+            JsonNode failed = awaitCompleted(json.readTree(created.body()).get("id").asText());
+            assertThat(failed.get("state").asText()).isEqualTo("FAILED");
+            assertThat(output).contains("status=400", "Unsupported parameter: temperature", "provider_name=OpenAI");
+            assertThat(output).doesNotContain("test-secret");
+        } finally {
+            providerError.set(null);
         }
     }
 
@@ -174,6 +207,15 @@ class GoalRunAcceptanceTest {
                 Thread.currentThread().interrupt();
                 throw new IOException("Interrupted while delaying the fake provider response.", exception);
             }
+        }
+        String error = providerError.get();
+        if (error != null) {
+            byte[] response = error.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(400, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+            return;
         }
         byte[] response = """
                 {

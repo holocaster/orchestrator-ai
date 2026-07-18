@@ -61,7 +61,7 @@ public class GoalRunExecutor {
             goalRuns.save(run.complete(call.decision().outcome(), call.decision().answer(), completedAt));
         } catch (RuntimeException exception) {
             logger.error("Goal Run {} failed during Orchestrator execution", goalRunId, exception);
-            goalRuns.save(run.fail("The Orchestrator could not complete this Goal Run.", clock.instant()));
+            goalRuns.save(run.fail("O Orquestrador não conseguiu concluir esta execução.", clock.instant()));
         }
     }
 }

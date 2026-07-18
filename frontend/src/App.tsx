@@ -3,6 +3,19 @@ import { useEffect, useState } from 'react'
 type GoalRunState = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'LIMIT_REACHED' | 'CANCELLED'
 type GoalOutcome = 'ACHIEVED' | 'NOT_ACHIEVED'
 
+const stateLabels: Record<GoalRunState, string> = {
+  RUNNING: 'Em execução',
+  COMPLETED: 'Concluída',
+  FAILED: 'Falhou',
+  LIMIT_REACHED: 'Limite atingido',
+  CANCELLED: 'Cancelada',
+}
+
+const outcomeLabels: Record<GoalOutcome, string> = {
+  ACHIEVED: 'Objetivo alcançado',
+  NOT_ACHIEVED: 'Objetivo não alcançado',
+}
+
 type GoalRun = {
   id: string
   goal: string
@@ -21,7 +34,7 @@ type ApiError = {
 async function readGoalRun(id: string): Promise<GoalRun> {
   const response = await fetch(`/api/goal-runs/${id}`)
   if (!response.ok) {
-    throw new Error('The Goal Run could not be refreshed.')
+    throw new Error('Não foi possível atualizar a execução.')
   }
   return response.json() as Promise<GoalRun>
 }
@@ -47,7 +60,7 @@ export default function App() {
         }
       } catch (refreshError) {
         if (active) {
-          setError(refreshError instanceof Error ? refreshError.message : 'The Goal Run could not be refreshed.')
+          setError(refreshError instanceof Error ? refreshError.message : 'Não foi possível atualizar a execução.')
         }
       }
     }
@@ -75,12 +88,12 @@ export default function App() {
       })
       if (!response.ok) {
         const problem = (await response.json().catch(() => ({}))) as ApiError
-        throw new Error(problem.message ?? 'The Goal Run could not be started.')
+        throw new Error(problem.message ?? 'Não foi possível iniciar a execução.')
       }
       setRun((await response.json()) as GoalRun)
       setGoal('')
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'The Goal Run could not be started.')
+      setError(submitError instanceof Error ? submitError.message : 'Não foi possível iniciar a execução.')
     } finally {
       setSubmitting(false)
     }
@@ -92,25 +105,25 @@ export default function App() {
     <main className="mx-auto min-h-screen w-full max-w-5xl px-4 py-8 sm:px-8 sm:py-12">
       <header className="flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Goal orchestration</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">Orquestração de objetivos</p>
           <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
-            One bounded run. One useful outcome.
+            Uma execução limitada. Um resultado útil.
           </h1>
         </div>
-        <p className="font-mono text-xs text-muted">Private MVP</p>
+        <p className="font-mono text-xs text-muted">MVP privado</p>
       </header>
 
       <section hidden={isRunning} aria-labelledby="goal-heading" className="py-8 sm:py-10">
         <div className="mb-5">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-accent">New run</p>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-accent">Nova execução</p>
           <h2 id="goal-heading" className="mt-2 text-xl font-medium text-primary">
-            What outcome should the Orchestrator pursue?
+            Qual resultado o Orquestrador deve buscar?
           </h2>
         </div>
 
         <form onSubmit={createGoalRun} className="rounded-xl border border-border bg-surface p-4 sm:p-5">
           <label htmlFor="goal" className="sr-only">
-            Goal
+            Objetivo
           </label>
           <textarea
             id="goal"
@@ -119,19 +132,19 @@ export default function App() {
             disabled={isRunning || submitting}
             maxLength={10000}
             rows={5}
-            placeholder="Describe a concrete outcome..."
+            placeholder="Descreva um resultado concreto..."
             className="block w-full resize-y border-0 bg-transparent text-base leading-7 text-primary placeholder:text-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           />
           <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted">
-              {isRunning ? 'Wait for the active Goal Run to finish.' : 'The Goal remains immutable after submission.'}
+              {isRunning ? 'Aguarde a execução ativa terminar.' : 'O objetivo não poderá ser alterado após o envio.'}
             </p>
             <button
               type="submit"
               disabled={!goal.trim() || isRunning || submitting}
               className="min-h-11 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-canvas transition-colors hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {submitting ? 'Starting…' : 'Start Goal Run'}
+              {submitting ? 'Iniciando…' : 'Iniciar execução'}
             </button>
           </div>
         </form>
@@ -146,9 +159,9 @@ export default function App() {
       <section aria-labelledby="run-heading" aria-live="polite" className="pb-12">
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.16em] text-muted">Current run</p>
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-muted">Execução atual</p>
             <h2 id="run-heading" className="mt-2 text-xl font-medium text-primary">
-              {run ? 'Execution outcome' : 'No Goal Run yet'}
+              {run ? 'Resultado da execução' : 'Nenhuma execução iniciada'}
             </h2>
           </div>
           {run && <StateBadge state={run.state} />}
@@ -161,13 +174,15 @@ export default function App() {
 
             {run.state === 'RUNNING' && (
               <p className="mt-6 border-t border-border pt-5 text-sm text-muted">
-                The Orchestrator is evaluating the Goal.
+                O Orquestrador está avaliando o objetivo.
               </p>
             )}
 
             {run.state === 'COMPLETED' && run.finalAnswer && (
               <div className="mt-6 border-t border-border pt-5">
-                <p className="font-mono text-xs uppercase tracking-[0.16em] text-success">{run.outcome}</p>
+                <p className="font-mono text-xs uppercase tracking-[0.16em] text-success">
+                  {run.outcome ? outcomeLabels[run.outcome] : ''}
+                </p>
                 <p className="mt-3 max-w-3xl whitespace-pre-wrap text-base leading-7 text-primary">
                   {run.finalAnswer}
                 </p>
@@ -180,7 +195,7 @@ export default function App() {
           </article>
         ) : (
           <div className="rounded-xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted">
-            Submit a Goal to inspect its state and final answer here.
+            Envie um objetivo para acompanhar aqui o estado e a resposta final.
           </div>
         )}
       </section>
@@ -199,7 +214,7 @@ function StateBadge({ state }: { state: GoalRunState }) {
 
   return (
     <span className={`rounded-full border px-3 py-1 font-mono text-xs ${tone}`}>
-      State: {state.replace('_', ' ')}
+      Estado: {stateLabels[state]}
     </span>
   )
 }

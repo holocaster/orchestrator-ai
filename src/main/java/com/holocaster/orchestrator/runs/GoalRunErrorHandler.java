@@ -15,7 +15,7 @@ public class GoalRunErrorHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<Map<String, String>> conflict(DataIntegrityViolationException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("message", "Another Goal Run is already running."));
+                .body(Map.of("message", "Já existe uma execução em andamento."));
     }
 
     @ExceptionHandler(GoalRunNotFoundException.class)
@@ -25,6 +25,6 @@ public class GoalRunErrorHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<Map<String, String>> invalidGoal(MethodArgumentNotValidException exception) {
-        return ResponseEntity.badRequest().body(Map.of("message", "Goal must contain between 1 and 10000 characters."));
+        return ResponseEntity.badRequest().body(Map.of("message", "O objetivo deve conter entre 1 e 10.000 caracteres."));
     }
 }

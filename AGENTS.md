@@ -22,7 +22,7 @@
 - Keep Java packages feature-oriented under `runs`, `execution`, and `llm`.
 - Keep application endpoints under `/api`; the frontend uses same-origin requests.
 - Never persist API keys, authorization headers, cookies, or raw HTTP dumps.
-- Keep code, user-facing copy, tests, and documentation in English.
+- Keep code, tests, and technical documentation in English. Write user-facing copy in Brazilian Portuguese.
 - Do not edit or commit generated output from `target/`, `frontend/dist/`, or `frontend/node_modules/`.
 
 ## Verification

@@ -22,6 +22,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/orchestrator
       DATABASE_USERNAME: orchestrator
